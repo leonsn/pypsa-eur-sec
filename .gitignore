@@ -26,6 +26,8 @@ gurobi.log
 /data/switzerland*
 /data/.nfs*
 
+/data/pypsa-eur-sec-data-bundle-190719.tar.gz
+
 *.org
 
 *.nc

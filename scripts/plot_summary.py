@@ -177,7 +177,9 @@ def plot_balances():
     balances_df = pd.read_csv(snakemake.input.balances,index_col=list(range(3)),header=list(range(n_header)))
 
     balances = {i.replace(" ","_") : [i] for i in balances_df.index.levels[0]}
-    balances["energy"] = balances_df.index.levels[0]^co2_carriers
+    #balances["energy"] = balances_df.index.levels[0]^co2_carriers
+    # XOR does not do what we want if one of the elements in co2_carriers is not present in the index. Fix:
+    balances["energy"] = (lambda l1=balances_df.index.levels[0], l2=co2_carriers: [i for i in l1 if i not in l2])()
 
     for k,v in balances.items():
 

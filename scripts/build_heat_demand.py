@@ -3,7 +3,7 @@ import geopandas as gpd
 import atlite
 import pandas as pd
 import xarray as xr
-import scipy as sp
+import numpy as np
 import helper
 
 if 'snakemake' not in globals():
@@ -35,7 +35,7 @@ for item in ["rural","urban","total"]:
 
     pop_layout = xr.open_dataarray(snakemake.input['pop_layout_'+item])
 
-    M = I.T.dot(sp.diag(I.dot(pop_layout.stack(spatial=('y', 'x')))))
+    M = I.T.dot(np.diag(I.dot(pop_layout.stack(spatial=('y', 'x')))))
 
     heat_demand = cutout.heat_demand(matrix=M.T,index=clustered_busregions.index)
 
