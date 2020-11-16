@@ -4,28 +4,21 @@ import logging
 logger = logging.getLogger(__name__)
 import pandas as pd
 idx = pd.IndexSlice
-
 import numpy as np
 import scipy as sp
 import xarray as xr
 import re, os
-
 from six import iteritems, string_types
-
 import pypsa
-
 import yaml
-
 import pytz
-
 from vresutils.costdata import annuity
 
 
-#First tell PyPSA that links can have multiple outputs by
-#overriding the component_attrs. This can be done for
-#as many buses as you need with format busi for i = 2,3,4,5,....
-#See https://pypsa.org/doc/components.html#link-with-multiple-outputs-or-inputs
-
+# First tell PyPSA that links can have multiple outputs by
+# overriding the component_attrs. This can be done for
+# as many buses as you need with format busi for i = 2,3,4,5,....
+# See https://pypsa.org/doc/components.html#link-with-multiple-outputs-or-inputs
 
 override_component_attrs = pypsa.descriptors.Dict({k : v.copy() for k,v in pypsa.components.component_attrs.items()})
 override_component_attrs["Link"].loc["bus2"] = ["string",np.nan,np.nan,"2nd bus","Input (optional)"]
@@ -55,9 +48,7 @@ def update_wind_solar_costs(n,costs):
     """
     Update costs for wind and solar generators added with pypsa-eur to those
     cost in the planning year
-
     """
-
     #NB: solar costs are also manipulated for rooftop
     #when distribution grid is inserted
     n.generators.loc[n.generators.carrier=='solar','capital_cost'] = costs.at['solar-utility', 'fixed']
@@ -118,9 +109,7 @@ def add_carrier_buses(n, carriers):
     """
     Add buses to connect e.g. coal, nuclear and oil plants
     """
-
     for carrier in carriers:
-
         n.add("Carrier",
               carrier)
 
@@ -165,8 +154,6 @@ def remove_elec_base_techs(n):
 
 
 def add_co2_tracking(n):
-
-
     #minus sign because opposite to how fossil fuels used:
     #CH4 burning puts CH4 down, atmosphere up
     n.add("Carrier","co2",
@@ -222,9 +209,7 @@ def add_co2_tracking(n):
 
 
 def add_co2limit(n, Nyears=1.,limit=0.):
-
     cts = pop_layout.ct.value_counts().index
-
     co2_limit = co2_totals.loc[cts, "electricity"].sum()
 
     if "T" in opts:
@@ -264,7 +249,6 @@ def set_line_s_max_pu(n):
     n.links.loc[dc_b, 'p_min_pu'] = - snakemake.config['links']['p_max_pu']
 
 def set_line_volume_limit(n, lv):
-
     dc_b = n.links.carrier == 'DC'
 
     if lv != "opt":
@@ -281,8 +265,6 @@ def set_line_volume_limit(n, lv):
         n.links.loc[dc_b, 'capital_cost'] = (n.links.loc[dc_b, 'length'] *
                                              costs.at['HVDC overhead', 'fixed'])# +
                                              #costs.at['HVDC inverter pair', 'fixed'])
-
-
 
     if lv != 1.0:
         lines_s_nom = n.lines.s_nom.where(
@@ -343,12 +325,8 @@ def generate_periodic_profiles(dt_index=pd.date_range("2011-01-01 00:00","2011-1
     """Give a 24*7 long list of weekly hourly profiles, generate this for
        each country for the period dt_index, taking account of time
        zones and Summer Time.
-
     """
-
-
     weekly_profile = pd.Series(weekly_profile,range(24*7))
-
     week_df = pd.DataFrame(index=dt_index,columns=nodes)
 
     for ct in nodes:
@@ -356,7 +334,6 @@ def generate_periodic_profiles(dt_index=pd.date_range("2011-01-01 00:00","2011-1
         week_df[ct] = week_df[ct].map(weekly_profile)
 
     return week_df
-
 
 
 def shift_df(df,hours=1):
@@ -369,7 +346,6 @@ def shift_df(df,hours=1):
 def transport_degree_factor(temperature,deadband_lower=15,deadband_upper=20,
                             lower_degree_factor=0.5,
                             upper_degree_factor=1.6):
-
     """Work out how much energy demand in vehicles increases due to heating and cooling.
 
     There is a deadband where there is no increase.
@@ -378,7 +354,6 @@ def transport_degree_factor(temperature,deadband_lower=15,deadband_upper=20,
 
     Returns per unit increase in demand for each place and time
     """
-
     dd = temperature.copy()
 
     dd[(temperature > deadband_lower) & (temperature < deadband_upper)] = 0.
@@ -396,7 +371,6 @@ def prepare_data(network):
     ##############
     #Heating
     ##############
-
 
     ashp_cop = xr.open_dataarray(snakemake.input.cop_air_total).T.to_pandas().reindex(index=network.snapshots)
     gshp_cop = xr.open_dataarray(snakemake.input.cop_soil_total).T.to_pandas().reindex(index=network.snapshots)
@@ -444,10 +418,10 @@ def prepare_data(network):
     electric_nodes = n.loads.index[n.loads.carrier == "electricity"]
     n.loads_t.p_set[electric_nodes] = n.loads_t.p_set[electric_nodes] - electric_heat_supply.groupby(level=1,axis=1).sum()[electric_nodes]
 
+
     ##############
     #Transport
     ##############
-
 
     ## Get overall demand curve for all vehicles
 
@@ -596,7 +570,6 @@ def add_generation(network):
                     capital_cost=0.,
                     marginal_cost=costs.at[carrier,'fuel'])
 
-
         network.madd("Link",
                      nodes + " " + generator,
                      bus0=["EU " + carrier]*len(nodes),
@@ -609,6 +582,7 @@ def add_generation(network):
                      efficiency=costs.at[generator,'efficiency'],
                      efficiency2=costs.at[carrier,'CO2 intensity'],
                      lifetime=costs.at[generator,'lifetime'])
+
 
 def add_wave(network, wave_cost_factor):
     wave_fn = "data/WindWaveWEC_GLTB.xlsx"
@@ -641,7 +615,6 @@ def add_wave(network, wave_cost_factor):
               carrier="wave",
               capital_cost=(annuity(25,0.07)+0.03)*costs[wave_type],
               p_max_pu=wave["Hebrides",wave_type])
-
 
 
 def insert_electricity_distribution_grid(network):
@@ -777,7 +750,6 @@ def add_storage(network):
 
     network.add("Carrier","H2")
 
-
     network.madd("Bus",
                  nodes+ " H2",
                  location=nodes,
@@ -907,7 +879,6 @@ def add_storage(network):
                  p_nom_extendable=True,
                  lifetime=costs.at['battery inverter','lifetime'])
 
-
     if options['methanation']:
         network.madd("Link",
                      nodes + " Sabatier",
@@ -933,7 +904,6 @@ def add_storage(network):
                      efficiency2=-costs.at["helmeth","efficiency"]*costs.at['gas','CO2 intensity'],
                      capital_cost=costs.at["helmeth","fixed"],
                      lifetime=costs.at['helmeth','lifetime'])
-
 
     if options['SMR']:
         network.madd("Link",
@@ -1011,8 +981,6 @@ def add_transport(network):
                      p_max_pu=avail_profile[nodes],
                      efficiency=0.9)  #[B]
 
-
-
     if options["bev"]:
 
         network.madd("Store",
@@ -1025,7 +993,6 @@ def add_transport(network):
                      e_max_pu=1,
                      e_min_pu=dsm_profile[nodes])
 
-
     if options['transport_fuel_cell_share'] != 0:
 
         network.madd("Load",
@@ -1036,10 +1003,7 @@ def add_transport(network):
                      p_set=options['transport_fuel_cell_share']/costs.at["fuel cell","efficiency"]*transport[nodes])
 
 
-
-
 def add_heat(network):
-
     print("adding heat")
 
     sectors = ["residential", "services"]
@@ -1345,7 +1309,6 @@ def create_nodes_for_heat_sector():
 
 
 def add_biomass(network):
-
     print("adding biomass")
 
     nodes = pop_layout.index
@@ -1459,7 +1422,6 @@ def add_biomass(network):
 
 
 def add_industry(network):
-
     print("adding industrial demand")
 
     nodes = pop_layout.index
@@ -1540,14 +1502,12 @@ def add_industry(network):
                  efficiency3=costs.at['gas','CO2 intensity']*options["ccs_fraction"],
                  lifetime=costs.at['industry CCS','lifetime'])
 
-
     network.madd("Load",
                  nodes,
                  suffix=" H2 for industry",
                  bus=nodes + " H2",
                  carrier="H2 for industry",
                  p_set=industrial_demand.loc[nodes,"hydrogen"]/8760.)
-
 
     network.madd("Load",
                  nodes,
@@ -1686,9 +1646,7 @@ def add_industry(network):
                  lifetime=costs.at['industry CCS','lifetime'])
 
 
-
 def add_waste_heat(network):
-
     print("adding possibility to use industrial waste heat in district heating")
 
     #AC buses with district heating
@@ -1716,11 +1674,8 @@ def decentral(n):
     n.links.drop(n.links.index[n.links.carrier.isin(["DC","B2B"])],inplace=True)
 
 def remove_h2_network(n):
-
     nodes = pop_layout.index
-
     n.links.drop(n.links.index[n.links.carrier.isin(["H2 pipeline"])],inplace=True)
-
     n.stores.drop(["EU H2 Store"],inplace=True)
 
     if options['hydrogen_underground_storage']:
@@ -1774,7 +1729,6 @@ if __name__ == "__main__":
         import yaml
         with open('config.yaml', encoding='utf8') as f:
             snakemake.config = yaml.safe_load(f)
-
 
     logging.basicConfig(level=snakemake.config['logging_level'])
 
@@ -1868,7 +1822,6 @@ if __name__ == "__main__":
     else:
         logger.info("No resampling")
 
-
     if snakemake.config["foresight"] == 'myopic':
         co2_limits=pd.read_csv(snakemake.input.co2_budget, index_col=0)
         year=snakemake.wildcards.planning_horizons[-4:]
@@ -1884,7 +1837,6 @@ if __name__ == "__main__":
                 else:
                     limit = float(limit.replace("p",".").replace("m","-"))
                 add_co2limit(n, Nyears, limit)
-
 
     for o in opts:
         for tech in ["solar","onwind","offwind"]:
